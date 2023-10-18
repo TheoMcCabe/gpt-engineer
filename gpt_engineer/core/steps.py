@@ -375,6 +375,58 @@ def execute_entrypoint(ai: AI, dbs: DBs) -> List[dict]:
     return []
 
 
+def gen_entrypoint_enhanced(ai: AI, dbs: DBs) -> List[dict]:
+    """
+    Generates an entry point script based on a given codebase's information.
+
+    This function prompts the AI model to generate a series of Unix terminal commands
+    required to a) install dependencies and b) run all necessary components of a codebase
+    provided in the workspace. The generated commands are then saved to 'run.sh' in the
+    workspace.
+
+    Parameters:
+    - ai (AI): An instance of the AI model.
+    - dbs (DBs): An instance containing the database configurations and workspace
+      information, particularly the 'all_output.txt' which contains details about the
+      codebase on disk.
+
+    Returns:
+    - List[dict]: A list of messages containing the AI's response.
+
+    Notes:
+    - The AI is instructed not to install packages globally, use 'sudo', provide
+      explanatory comments, or use placeholders. Instead, it should use example values
+      where necessary.
+    - The function uses regular expressions to extract command blocks from the AI's
+      response to create the 'run.sh' script.
+    - It assumes the presence of an 'all_output.txt' file in the specified workspace
+      that contains information about the codebase.
+    """
+    messages = ai.start(
+        system=(
+            "You will get information about a codebase that is currently on disk in "
+            "the current folder and a prompt with specifications that the code is expected to fulfill\n"
+            "From this you will answer with code blocks that includes all the necessary "
+            "unix terminal commands to "
+            "a) Create and activate an appropriate virtual environment if possible. \n"
+            "b) install all dependencies, both for running the code and run tests listed in the prompt with specifications. \n"
+            "c) execute all tests mentioned in the specification.\n"
+            "d) if the code contains an entry point like a main function, execute this.\n"
+            "Do not install globally. Do not use sudo.\n"
+            "Do not explain the code, just give the commands.\n"
+            "Do not use placeholders, use example values (like . for a folder argument) "
+            "if necessary.\n"
+        ),
+        user="Information about the codebase:\n\n" + dbs.memory["all_output.txt"] + "Specification prompt:\n\n" + dbs.input["prompt"],
+        step_name=curr_fn(),
+    )
+    print()
+
+    regex = r"```\S*\n(.+?)```"
+    matches = re.finditer(regex, messages[-1].content.strip(), re.DOTALL)
+    dbs.workspace["run.sh"] = "\n".join(match.group(1) for match in matches)
+    return messages
+
 def gen_entrypoint(ai: AI, dbs: DBs) -> List[dict]:
     """
     Generates an entry point script based on a given codebase's information.
@@ -780,7 +832,7 @@ STEPS = {
         # enhance_prompt_add_strict_requirements, This seems to add some minor improvements for the password generator but given the exta call the the LLM adds a lot of time  its not worth it.
         # enhance_prompt_add_reference_files, This seems to add a fairly major improvement to the battleships test - but it breaks every other test
         simple_gen,
-        gen_entrypoint,
+        gen_entrypoint_enhanced,
         execute_entrypoint,
     ],
     Config.USE_FEEDBACK: [use_feedback, gen_entrypoint, execute_entrypoint, human_review],

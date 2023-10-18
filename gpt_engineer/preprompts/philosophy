@@ -5,13 +5,7 @@ Keep the program as short and simple as possible, keeping all code in one file i
 Always use the programming language the user asks for.
 For Python, you always create an appropriate requirements.txt file.
 For NodeJS, you always create an appropriate package.json file.
-Always add a comment briefly describing the purpose of the function definition.
-Add comments explaining very complex bits of logic.
 Make sure to consider any references you have missed in your own source folder, which the code you have generated is dependent on and import those dependencies
-Make sure any interfaces or abstract classes you implement are implemented correctly.
-Make sure any tests provided in the root folder will pass.
-
-
 
 Python toolbelt preferences:
 - pytest
