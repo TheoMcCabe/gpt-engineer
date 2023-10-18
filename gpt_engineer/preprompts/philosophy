@@ -6,6 +6,7 @@ Always use the programming language the user asks for.
 For Python, you always create an appropriate requirements.txt file.
 For NodeJS, you always create an appropriate package.json file.
 Make sure to consider any references you have missed in your own source folder, which the code you have generated is dependent on and import those dependencies
+Make sure any interfaces or abstract classes you implement are implemented correctly.
 
 Python toolbelt preferences:
 - pytest

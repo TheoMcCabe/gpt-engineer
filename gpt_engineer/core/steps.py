@@ -56,6 +56,9 @@ from typing import List, Union
 from langchain.schema import AIMessage, HumanMessage, SystemMessage
 from termcolor import colored
 
+from platform import platform
+from sys import version_info
+
 from gpt_engineer.core.ai import AI
 from gpt_engineer.core.chat_to_files import (
     format_file_to_input,
@@ -72,6 +75,9 @@ from gpt_engineer.cli.file_selector import (
 )
 from gpt_engineer.cli.learning import human_review_input
 
+
+MAX_SELF_HEAL_ATTEMPTS = 3  # constants for self healing code
+ASSUME_WORKING_TIMEOUT = 30
 # Type hint for chat messages
 Message = Union[AIMessage, HumanMessage, SystemMessage]
 
@@ -163,6 +169,77 @@ def lite_gen(ai: AI, dbs: DBs) -> List[Message]:
     to_files_and_memory(messages[-1].content.strip(), dbs)
     return messages
 
+def get_platform_info():
+    """Returns the Platform: OS, and the Python version.
+    This is used for self healing.
+    """
+    v = version_info
+    a = f"Python Version: {v.major}.{v.minor}.{v.micro}"
+    b = f"\nOS: {platform()}\n"
+    return a + b
+
+def self_heal(ai: AI, dbs: DBs):
+    """Attempts to execute the code from the entrypoint and if it fails,
+    sends the error output back to the AI with instructions to fix.
+    This code will make `MAX_SELF_HEAL_ATTEMPTS` to try and fix the code
+    before giving up.
+    This makes the assuption that the previous step was `gen_entrypoint`,
+    this code could work with `simple_gen`, or `gen_clarified_code` as well.
+    """
+
+    # step 1. execute the entrypoint
+    log_path = dbs.workspace.path / "log.txt"
+
+    attempts = 0
+    messages = []
+
+    while attempts < MAX_SELF_HEAL_ATTEMPTS:
+        log_file = open(log_path, "w")  # wipe clean on every iteration
+        timed_out = False
+
+        p = subprocess.Popen(  # attempt to run the entrypoint
+            "bash run.sh",
+            shell=True,
+            cwd=dbs.workspace.path,
+            stdout=log_file,
+            stderr=log_file,
+            bufsize=0,
+        )
+        try:  # timeout if the process actually runs
+            p.wait(timeout=ASSUME_WORKING_TIMEOUT)
+        except subprocess.TimeoutExpired:
+            timed_out = True
+            print("The process hit a timeout before exiting.")
+
+        # get the result and output
+        # step 2. if the return code not 0, package and send to the AI
+        if p.returncode != 0 and not timed_out:
+            print("run.sh failed.  Let's fix it.")
+
+            # pack results in an AI prompt
+
+            # Using the log from the previous step has all the code and
+            # the gen_entrypoint prompt inside.
+            if attempts < 1:
+                messages = AI.deserialize_messages(dbs.logs[gen_entrypoint_enhanced.__name__])
+                messages.append(ai.fuser(get_platform_info()))  # add in OS and Py version
+
+            # append the error message
+            messages.append(ai.fuser(dbs.workspace["log.txt"]))
+
+            messages = ai.next(
+                messages, "Please fix any errors in the code above: " + dbs.preprompts["file_format"], step_name=curr_fn()
+            )
+        else:  # the process did not fail, we are done here.
+            return messages
+
+        log_file.close()
+
+        # this overwrites the existing files
+        to_files_and_memory(messages[-1].content.strip(), dbs)
+        attempts += 1
+
+    return messages
 
 def simple_gen(ai: AI, dbs: DBs) -> List[Message]:
     """
@@ -833,7 +910,7 @@ STEPS = {
         # enhance_prompt_add_reference_files, This seems to add a fairly major improvement to the battleships test - but it breaks every other test
         simple_gen,
         gen_entrypoint_enhanced,
-        execute_entrypoint,
+        self_heal,
     ],
     Config.USE_FEEDBACK: [use_feedback, gen_entrypoint, execute_entrypoint, human_review],
     Config.EXECUTE_ONLY: [execute_entrypoint],
