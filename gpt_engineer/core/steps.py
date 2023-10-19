@@ -78,6 +78,7 @@ from gpt_engineer.cli.learning import human_review_input
 
 MAX_SELF_HEAL_ATTEMPTS = 3  # constants for self healing code
 ASSUME_WORKING_TIMEOUT = 30
+SELF_HEAL_HISTORY_LEN = 5
 # Type hint for chat messages
 Message = Union[AIMessage, HumanMessage, SystemMessage]
 
@@ -213,7 +214,8 @@ def self_heal(ai: AI, dbs: DBs):
 
         # get the result and output
         # step 2. if the return code not 0, package and send to the AI
-        if p.returncode != 0 and not timed_out:
+        log = dbs.workspace["log.txt"]
+        if (p.returncode != 0 or "ERROR" in log or "FAILED" in log) and not timed_out:
             print("run.sh failed.  Let's fix it.")
 
             # pack results in an AI prompt
@@ -225,10 +227,10 @@ def self_heal(ai: AI, dbs: DBs):
                 messages.append(ai.fuser(get_platform_info()))  # add in OS and Py version
 
             # append the error message
-            messages.append(ai.fuser(dbs.workspace["log.txt"]))
+            messages.append(ai.fuser(log))
 
             messages = ai.next(
-                messages, "Please fix any errors in the code above: " + dbs.preprompts["file_format"], step_name=curr_fn()
+                messages, "Please fix all errors and failed tests " + dbs.preprompts["file_format"], step_name=curr_fn()
             )
         else:  # the process did not fail, we are done here.
             return messages
