@@ -228,10 +228,14 @@ def self_heal(ai: AI, dbs: DBs):
 
             # append the error message
             messages.append(ai.fuser(log))
-
-            messages = ai.next(
-                messages, "Please fix all errors and failed tests " + dbs.preprompts["file_format"], step_name=curr_fn()
-            )
+            if p.returncode != 0:
+                messages = ai.next(
+                    messages, "Please fix all errors " + dbs.preprompts["file_format"], step_name=curr_fn()
+                )
+            else:
+                messages = ai.next(
+                    messages, "The preceding messages detail a specification of a program that should pass given tests and an attempted implementation of that program. Modify the attempted program so that the failing tests pass. " + dbs.preprompts["file_format"], step_name=curr_fn()
+                )
         else:  # the process did not fail, we are done here.
             return messages
 
@@ -909,7 +913,7 @@ STEPS = {
     ],
     Config.SIMPLE: [
         # enhance_prompt_add_strict_requirements, This seems to add some minor improvements for the password generator but given the exta call the the LLM adds a lot of time  its not worth it.
-        # enhance_prompt_add_reference_files, This seems to add a fairly major improvement to the battleships test - but it breaks every other test
+        enhance_prompt_add_reference_files, #This seems to add a fairly major improvement to the battleships test - but it breaks every other test
         simple_gen,
         gen_entrypoint_enhanced,
         self_heal,
