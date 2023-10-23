@@ -234,9 +234,9 @@ def self_heal(ai: AI, dbs: DBs):
                 )
             else:
                 messages = ai.next(
-                    messages, "The preceding messages detail a specification of a program that should pass given tests and an attempted implementation of that program. Please summarize the messages to a minimal and very clear representation, which still includes all information necessary to modify the program so that it passes the tests. All files with code that needs modification must be included in full", step_name="failure_summary"
+                    messages, "The preceding messages detail a specification of a program that should pass given tests and an attempted implementation of that program. Produce a maximally brief but comprehensive list of changes, including code snippets, from what to what the progam should be changed to pass the tests." , step_name="failure_summary"
                 )
-                messages = ai.next(messages[-1], "Write a modified version of the code that fixes the failed tests" + dbs.preprompts["file_format"], step_name=curr_fn())
+                messages = ai.next([messages[-1]], dbs.memory["all_output.txt"] + " Write a modified version of the code that precisely implements the suggested changes and copies the remainder as it is." + dbs.preprompts["file_format"], step_name=curr_fn())
         else:  # the process did not fail, we are done here.
             return messages
 
