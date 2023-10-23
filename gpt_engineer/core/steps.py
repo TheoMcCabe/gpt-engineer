@@ -879,6 +879,7 @@ class Config(str, Enum):
     DEFAULT = "default"
     BENCHMARK = "benchmark"
     SIMPLE = "simple"
+    SIMPLE_ENHANCED = "simple_enhanced"
     LITE = "lite"
     CLARIFY = "clarify"
     EXECUTE_ONLY = "execute_only"
@@ -912,9 +913,17 @@ STEPS = {
         simple_gen,
         gen_entrypoint,
     ],
-    Config.SIMPLE: [
+    Config.SIMPLE_ENHANCED: [
         # enhance_prompt_add_strict_requirements, This seems to add some minor improvements for the password generator but given the exta call the the LLM adds a lot of time  its not worth it.
         enhance_prompt_add_reference_files, #This seems to add a fairly major improvement to the battleships test - but it breaks every other test
+        simple_gen,
+        gen_entrypoint_enhanced,
+        self_heal,
+    ],
+    Config.SIMPLE: [
+        # enhance_prompt_add_strict_requirements, This seems to add some minor improvements for the password generator but given the exta call the the LLM adds a lot of time  its not worth it.
+        # enhance_prompt_add_reference_files,
+        # This seems to add a fairly major improvement to the battleships test - but it breaks every other test
         simple_gen,
         gen_entrypoint_enhanced,
         self_heal,

@@ -122,12 +122,19 @@ async def step_handler(step: Step) -> Step:
 
     # if not step.name == "Dummy step":
     workspace_dir = Agent.get_workspace(step.task_id)
+    artifacts_in = await Agent.db.list_artifacts(step.task_id)
+    # if any python files in the artifacts in
+    python_file_list = [".py" in artifact.file_name for artifact in artifacts_in]
+    if any(python_file_list):
+        steps_config = "simple_enhanced"
+    else:
+        steps_config = "simple"
     try:
         main(
             workspace_dir,
             step.additional_input.get("model", "gpt-4"),
             step.additional_input.get("temperature", 0.1),
-            "simple",
+            steps_config,
             False,
             step.additional_input.get("azure_endpoint", ""),
             step.additional_input.get("verbose", False),
